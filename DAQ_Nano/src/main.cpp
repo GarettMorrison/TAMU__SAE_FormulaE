@@ -4,6 +4,10 @@
 #include <SD.h>
 #include <wire.h>
 
+// NRF radio stuff
+#include <nRF24L01.h>
+#include <RF24.h>
+
 // Make SD card object, tell it what SPI sel pin to use
 File SD_file;
 const int chipSelect = 10;
@@ -14,14 +18,11 @@ const int endLoopPin = 3;
 // MPU6050 Stuff
 // follow this tutorial https://howtomechatronics.com/tutorials/arduino/arduino-and-mpu6050-accelerometer-and-gyroscope-tutorial/
 const int MPU = 0x68; // MPU6050 I2C address
-float AccX, AccY, AccZ;
-float GyroX, GyroY, GyroZ;
-float accAngleX, accAngleY, gyroAngleX, gyroAngleY, gyroAngleZ;
-float roll, pitch, yaw;
-float AccErrorX, AccErrorY, GyroErrorX, GyroErrorY, GyroErrorZ;
-float elapsedTime, currentTime, previousTime;
 int c = 0;
 
+RF24 radio(7, 8); // CE, CSN
+
+const byte address[6] = "00001";
 
 byte* dataMem[20];
 
@@ -51,6 +52,12 @@ void setup() {
   Wire.write(0x00);                  // Make reset - place a 0 into the 6B register
   Wire.endTransmission(true);        // End the transmission
 
+  // Init NRF24L01
+  radio.begin();
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_MIN);
+  radio.stopListening();
+
   Serial.println("Beginning Data Collection");
 }
 
@@ -66,17 +73,6 @@ void loop() {
   // Serial.print(micros());
   // Serial.print(" ");
   // Serial.println(*(unsigned long*)(dataMem +0));
-
-  // Write whole array
-  SD_file.write((char*)dataMem, 20);
-  // SD_file.flush();
-
-  // Write val to nextium
-  // Serial.print("speed.val=");
-  // Serial.print(read_unsigned_short);
-  // Serial.write(0xFF);
-  // Serial.write(0xFF);
-  // Serial.write(0xFF);
 
   // Get IMU acceleration data
   Wire.beginTransmission(MPU);
@@ -103,6 +99,22 @@ void loop() {
   for(size_t ii=0; ii<3; ii++){
     *(dataMem +6 +ii) = (Wire.read() << 8 | Wire.read()); //Read two bytes
   }
+
+  
+  // Send data
+
+  // Write whole array
+  SD_file.write((char*)dataMem, 20);
+  // SD_file.flush();
+
+  // Write val to nextium
+  // Serial.print("speed.val=");
+  // Serial.print(read_unsigned_short);
+  // Serial.write(0xFF);
+  // Serial.write(0xFF);
+  // Serial.write(0xFF);
+  
+  radio.write((char*)dataMem, 20);
 
 
 
